@@ -234,8 +234,6 @@ def update_parameters(ob_no, ac_na, q_n, adv_n):
     # Optimize the model
     optimizer.zero_grad()
     loss.backward()
-    for param in policy_net.parameters():
-        param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
     # ------------------------------------------------------------------
