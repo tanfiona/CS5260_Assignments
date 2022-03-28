@@ -2,3 +2,5 @@
 02b. DQN/data_dqn/
 05. Mixture of Experts/data/
 06. Self-Supervised Learning/data/
+08. Optimizers for Deep Neural Networks/submit/tb_logs/
+*.docx
