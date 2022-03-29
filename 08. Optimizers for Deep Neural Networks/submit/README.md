@@ -5,7 +5,7 @@ The hyperparameters and architectures we played with for this assignment is as f
 * Optimizers: ['sgd','adamw']
 * Learning rate schedulers: ['lambda','multistep']
 
-Please check `report.pdf` for a summary of our findings.
+Please check the report at `A0107143U.pdf` for a summary of our findings.
 
 ### Requirements
 Set up a new conda environment based off `environment.yml` or using `requirements.txt`.
