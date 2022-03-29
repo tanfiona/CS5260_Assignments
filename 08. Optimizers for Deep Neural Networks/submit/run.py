@@ -51,6 +51,8 @@ def run(optimizer_method, scheduler_method, learning_rate):
     
     logger = get_dist_logger()
     d_name = f'{optimizer_method}_{scheduler_method}_{learning_rate}'
+    logger.log_to_file(f'./tb_logs2/{d_name}')
+    logger.info(f'>>>>>>{optimizer_method}_{scheduler_method}_{learning_rate}')
 
     # build 
     model = LeNet5(n_classes=10)
@@ -95,23 +97,22 @@ def run(optimizer_method, scheduler_method, learning_rate):
     else:
         raise NotImplementedError
 
-    #exponentially increase learning rate from low to high
-    def lrs(batch):
-        low = math.log2(1e-5)
-        high = math.log2(10)
-        return 2**(low+(high-low)*batch/len(train_dataloader)/gpc.config.NUM_EPOCHS)
-
-    # lr_scheduler
-    if scheduler_method.lower()=='lambda':
-        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lrs)
-    elif scheduler_method.lower()=='multistep':
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30,80], gamma=0.1)
-    elif scheduler_method.lower()=='onecycle':
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=learning_rate*10, 
-            steps_per_epoch=len(train_dataloader), 
-            epochs=gpc.config.NUM_EPOCHS
-        )
+    # # lr_scheduler
+    # if scheduler_method.lower()=='lambda':
+    #     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer)
+    # elif scheduler_method.lower()=='multistep':
+    #     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+    #         optimizer, 
+    #         milestones=[i*len(train_dataloader) for i in range(gpc.config.NUM_EPOCHS)], 
+    #         gamma=0.1)
+    # elif scheduler_method.lower()=='onecycle':
+    #     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    #         optimizer, max_lr=learning_rate/10,
+    #         steps_per_epoch=len(train_dataloader), 
+    #         epochs=gpc.config.NUM_EPOCHS
+    #     )
+    # else:
+    #     raise NotImplementedError
 
     engine, train_dataloader, test_dataloader, _ = colossalai.initialize(
         model, optimizer, criterion, train_dataloader, test_dataloader
@@ -130,14 +131,14 @@ def run(optimizer_method, scheduler_method, learning_rate):
     # define the hooks to attach to the trainer
     hook_list = [
         hooks.LossHook(),
-        hooks.LRSchedulerHook(lr_scheduler=lr_scheduler, by_epoch=False),
+        # hooks.LRSchedulerHook(lr_scheduler=lr_scheduler, by_epoch=False),
         # hooks.AccuracyHook(accuracy_func=Accuracy()),
         hooks.LogMetricByEpochHook(logger),
         hooks.LogMemoryByEpochHook(logger),
         hooks.LogTimingByEpochHook(timer, logger),
 
         # you can uncomment these lines if you wish to use them
-        hooks.TensorboardHook(log_dir=f'./tb_logs/{d_name}', ranks=[0]),
+        hooks.TensorboardHook(log_dir=f'./tb_logs2/{d_name}', ranks=[0]),
         # hooks.SaveCheckpointHook(checkpoint_dir='./ckpt')
     ]
 
@@ -150,25 +151,23 @@ def run(optimizer_method, scheduler_method, learning_rate):
         hooks=hook_list,
         display_progress=True
     )
-    
-    logger.log_to_file(f'./tb_logs/{d_name}')
 
 
 if __name__ == '__main__':
-    # Propose several learning rates for real training.
-    learning_rates = [0.1,0.05,0.001]
-    # Choose one optimizer 
-    optimizer_methods = ['sgd','adamw']
-    # Choose two learning rate scheduling method 
-    scheduler_methods = ['lambda','multistep','onecycle']
+    # Combinations, LR from LR Range Test
+    combinations = [
+        ('sgd','',0.025),
+        ('sgd','',0.0025),
+        ('sgd','',0.25),
+        ('adamw','',0.001),
+        ('adamw','',0.0001),
+        ('adamw','',0.01),
+    ]
 
     # Single launch
     config = {'BATCH_SIZE':128,'NUM_EPOCHS':30}
     colossalai.launch(config=config,rank=0,world_size=1,host='127.0.0.1',port=1234)
 
     # Loop
-    for learning_rate in learning_rates:
-        for optimizer_method in optimizer_methods:
-            for scheduler_method in scheduler_methods:
-                print('>>>>>>', optimizer_method, scheduler_method, learning_rate)
-                run(optimizer_method, scheduler_method, learning_rate)
+    for (optimizer_method, scheduler_method, learning_rate) in combinations:
+        run(optimizer_method, scheduler_method, learning_rate)
