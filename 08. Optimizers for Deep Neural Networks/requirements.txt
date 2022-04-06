@@ -1,1 +1,5 @@
+pytorch
+jupyter
+torchvision
+cudatoolkit
 colossalai
